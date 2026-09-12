@@ -213,7 +213,7 @@ export default function LiftsPage() {
           <div className="flex flex-col gap-2">
             {[...history].reverse().slice(0, 20).map((h, i, arr) => {
               const prev = arr[i + 1];
-              const deltaOrm = prev ? (units === "lbs" ? h.ormLbs - prev.ormLbs : h.orm - prev.orm) : 0;
+              const deltaOrm = prev ? Math.round(units === "lbs" ? h.ormLbs - prev.ormLbs : h.orm - prev.orm) : 0;
               const bw = goalProgressSeries([h], goalDef?.multiplier ?? 1, weightLog, units).at(0);
               return (
                 <Card key={h.date} className="flex items-center justify-between py-3">

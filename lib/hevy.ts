@@ -77,7 +77,7 @@ export function calcOneRepMax(weightKg: number, reps: number): number {
 }
 
 export function kgToLbs(kg: number): number {
-  return Math.round(kg * 2.20462 * 10) / 10;
+  return Math.round(kg * 2.20462);
 }
 
 export function lbsToKg(lbs: number): number {

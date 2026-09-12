@@ -104,7 +104,7 @@ export function goalProgressSeries(
       const ormInUnits = units === "lbs" ? h.ormLbs : h.orm;
       const target = goalMultiplier * bw;
       const pct = Math.round((ormInUnits / target) * 100);
-      const bwRatio = Math.round((ormInUnits / bw) * 100) / 100;
+      const bwRatio = Math.round((ormInUnits / bw) * 10) / 10;
       return { date: h.date.slice(5), pct, bwRatio };
     })
     .filter((x): x is { date: string; pct: number; bwRatio: number } => x !== null);

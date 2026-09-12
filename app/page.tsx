@@ -50,7 +50,7 @@ export default function Dashboard() {
     // bodyweight ratio
     const latestBW = latestWeight?.weight;
     const ormInUnits = latest ? (units === "lbs" ? latest.ormLbs : latest.orm) : null;
-    const bwRatio = ormInUnits && latestBW ? Math.round((ormInUnits / latestBW) * 100) / 100 : null;
+    const bwRatio = ormInUnits && latestBW ? Math.round((ormInUnits / latestBW) * 10) / 10 : null;
     const goalMult = DEFAULT_GOALS.find((g) => g.lift === lift)?.multiplier ?? null;
     const goalPct = ormInUnits && latestBW && goalMult
       ? Math.round((ormInUnits / (latestBW * goalMult)) * 100)
