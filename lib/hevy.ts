@@ -53,11 +53,11 @@ export async function getWorkouts(apiKey: string, page = 1, pageSize = 10): Prom
 }
 
 export async function getAllWorkouts(apiKey: string): Promise<HevyWorkout[]> {
-  const first = await getWorkouts(apiKey, 1, 20);
+  const first = await getWorkouts(apiKey, 1, 10);
   const pages = first.page_count;
   if (pages <= 1) return first.workouts;
   const rest = await Promise.all(
-    Array.from({ length: pages - 1 }, (_, i) => getWorkouts(apiKey, i + 2, 20))
+    Array.from({ length: pages - 1 }, (_, i) => getWorkouts(apiKey, i + 2, 10))
   );
   return [first.workouts, ...rest.map((r) => r.workouts)].flat();
 }
