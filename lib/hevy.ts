@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { getApiKey } from "./store";
+
 export interface HevyWorkout {
   id: string;
   title: string;
@@ -33,7 +36,7 @@ function getWorkouts(apiKey: string, page: number): Promise<{ workouts: HevyWork
   return hevyFetch(`/v1/workouts?page=${page}&pageSize=10`, apiKey);
 }
 
-export async function getAllWorkouts(apiKey: string): Promise<HevyWorkout[]> {
+async function getAllWorkouts(apiKey: string): Promise<HevyWorkout[]> {
   const first = await getWorkouts(apiKey, 1);
   const pages = first.page_count;
   if (pages <= 1) return first.workouts;
@@ -41,6 +44,29 @@ export async function getAllWorkouts(apiKey: string): Promise<HevyWorkout[]> {
     Array.from({ length: pages - 1 }, (_, i) => getWorkouts(apiKey, i + 2))
   );
   return [first.workouts, ...rest.map((r) => r.workouts)].flat();
+}
+
+let cache: { key: string; promise: Promise<HevyWorkout[]> } | null = null;
+
+// Fetches once per API key and shares the result across pages
+export function useWorkouts() {
+  const [state, setState] = useState({ workouts: [] as HevyWorkout[], loading: true, error: "" });
+  useEffect(() => {
+    const key = getApiKey();
+    if (cache?.key !== key) {
+      cache = {
+        key,
+        promise: key ? getAllWorkouts(key) : Promise.reject(new Error("Add your Hevy API key in Settings.")),
+      };
+    }
+    cache.promise
+      .then((workouts) => setState({ workouts, loading: false, error: "" }))
+      .catch((e: Error) => {
+        cache = null;
+        setState({ workouts: [], loading: false, error: e.message });
+      });
+  }, []);
+  return state;
 }
 
 // Epley 1RM formula: weight * (1 + reps/30)
