@@ -3,16 +3,14 @@ import { useState, useEffect } from "react";
 import Shell from "@/components/Shell";
 import Card from "@/components/Card";
 import {
-  getTrackedLifts, getUnits, getProgramState, setProgramState, advanceWeek,
-  getWeightLog, getApiKey, type ProgramState,
+  getTrackedLifts, getProgramState, setProgramState, getApiKey, type ProgramState,
 } from "@/lib/store";
 import { getAllWorkouts, extractOneRepMaxHistory } from "@/lib/hevy";
-import { CYCLES, prescribedSets, tmIncrement, DEFAULT_GOALS } from "@/lib/program";
+import { CYCLES, prescribedSets, tmIncrement, advanceWeek, roundTo5 } from "@/lib/program";
 
 export default function ProgramPage() {
   const [state, setState] = useState<ProgramState>({ trainingMaxes: {}, weekIndex: 0, cycleNumber: 1 });
   const [lifts, setLifts] = useState<string[]>([]);
-  const [units, setUnits] = useState("lbs");
   const [editingTMs, setEditingTMs] = useState(false);
   const [tmInputs, setTmInputs] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
@@ -23,10 +21,8 @@ export default function ProgramPage() {
     setMounted(true);
     const s = getProgramState();
     const l = getTrackedLifts();
-    const u = getUnits();
     setState(s);
     setLifts(l);
-    setUnits(u);
     setApiKeyState(getApiKey());
     setTmInputs(
       Object.fromEntries(l.map((lift) => [lift, String(s.trainingMaxes[lift] ?? "")]))
@@ -36,11 +32,6 @@ export default function ProgramPage() {
   if (!mounted) return null;
 
   const cycle = CYCLES[state.weekIndex];
-  const weightLog = getWeightLog();
-  const latestBW = weightLog.at(-1)?.weight ?? null;
-
-  const goals = DEFAULT_GOALS;
-  const goalFor = (lift: string) => goals.find((g) => g.lift === lift)?.multiplier ?? null;
 
   function saveTMs() {
     const newTMs: Record<string, number> = {};
@@ -64,11 +55,8 @@ export default function ProgramPage() {
       for (const lift of lifts) {
         const history = extractOneRepMaxHistory(workouts, lift);
         const latest = history.at(-1);
-        if (latest) {
-          const orm = units === "lbs" ? latest.ormLbs : latest.orm;
-          // TM = 90% of 1RM, rounded to nearest 5
-          newInputs[lift] = String(Math.round((orm * 0.9) / 5) * 5);
-        }
+        // TM = 90% of 1RM
+        if (latest) newInputs[lift] = String(roundTo5(latest.orm * 0.9));
       }
       setTmInputs(newInputs);
     } finally {
@@ -121,7 +109,7 @@ export default function ProgramPage() {
       {/* Training maxes */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs text-[#737373] font-semibold uppercase tracking-widest">
-          Training Maxes ({units})
+          Training Maxes (lbs)
         </div>
         <div className="flex gap-3">
           {editingTMs ? (
@@ -165,7 +153,7 @@ export default function ProgramPage() {
                 inputMode="decimal"
                 value={tmInputs[lift] ?? ""}
                 onChange={(e) => setTmInputs({ ...tmInputs, [lift]: e.target.value })}
-                placeholder={units}
+                placeholder="lbs"
                 className="w-24 rounded-lg bg-[#0a0a0a] border border-[#262626] px-3 py-2 text-sm text-[#f5f5f5] text-right"
               />
             </div>
@@ -175,15 +163,11 @@ export default function ProgramPage() {
 
       {/* Prescribed sets for each lift */}
       {hasTMs && (
-        <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col gap-3">
           {lifts.map((lift) => {
             const tm = state.trainingMaxes[lift];
             if (!tm) return null;
             const sets = prescribedSets(tm, state.weekIndex);
-            const mult = goalFor(lift);
-            const currentRatioDisplay = latestBW && mult
-              ? `Goal: ${mult}× BW`
-              : null;
             const inc = tmIncrement(lift);
 
             return (
@@ -192,12 +176,11 @@ export default function ProgramPage() {
                   <div>
                     <div className="font-semibold">{lift.replace(" (Barbell)", "")}</div>
                     <div className="text-xs text-[#737373]">
-                      TM: {tm} {units}
-                      {currentRatioDisplay && <span className="ml-2">{currentRatioDisplay}</span>}
+                      TM: {tm} lbs
                     </div>
                   </div>
                   <div className="text-xs text-[#737373] text-right shrink-0 ml-2">
-                    Next cycle<br />+{inc} {units}
+                    Next cycle<br />+{inc} lbs
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -213,7 +196,7 @@ export default function ProgramPage() {
                       <div className={`text-lg font-bold ${i === sets.length - 1 ? "text-orange-400" : ""}`}>
                         {s.weight}
                       </div>
-                      <div className="text-xs text-[#737373]">{units}</div>
+                      <div className="text-xs text-[#737373]">lbs</div>
                       <div className={`text-sm font-semibold mt-1 ${i === sets.length - 1 ? "text-orange-400" : "text-[#f5f5f5]"}`}>
                         {s.reps} reps
                       </div>
@@ -226,46 +209,6 @@ export default function ProgramPage() {
         </div>
       )}
 
-      {/* Bodyweight goal targets */}
-      {latestBW && (
-        <>
-          <div className="text-xs text-[#737373] font-semibold uppercase tracking-widest mb-2">
-            Strength Goals at {latestBW} {units} BW
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {DEFAULT_GOALS.map(({ lift, multiplier }) => {
-              const target = Math.round(latestBW * multiplier);
-              const tm = state.trainingMaxes[lift];
-              const est1rm = tm ? Math.round(tm / 0.9) : null;
-              const pct = est1rm ? Math.round((est1rm / target) * 100) : null;
-              return (
-                <Card key={lift}>
-                  <div className="text-xs text-[#737373] truncate mb-1 leading-tight">
-                    {lift.replace(" (Barbell)", "")}
-                  </div>
-                  <div className="text-lg font-bold">
-                    {target} <span className="text-xs font-normal text-[#737373]">{units}</span>
-                  </div>
-                  <div className="text-xs text-[#737373] mb-2">{multiplier}× bodyweight</div>
-                  {pct !== null && (
-                    <>
-                      <div className="h-1.5 w-full rounded-full bg-[#262626] overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-orange-500 transition-all"
-                          style={{ width: `${Math.min(pct, 100)}%` }}
-                        />
-                      </div>
-                      <div className={`text-xs mt-1 font-semibold ${pct >= 100 ? "text-green-400" : "text-orange-400"}`}>
-                        {pct}% {pct >= 100 ? "✓ Goal reached!" : "of goal"}
-                      </div>
-                    </>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        </>
-      )}
     </Shell>
   );
 }

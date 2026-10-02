@@ -1,11 +1,7 @@
-import type { WeightEntry } from "./store";
+import type { ProgramState, WeightEntry } from "./store";
 
-export interface LiftGoal {
-  lift: string;
-  multiplier: number; // target 1RM as multiple of bodyweight
-}
-
-export const DEFAULT_GOALS: LiftGoal[] = [
+// Target 1RM as a multiple of bodyweight
+export const DEFAULT_GOALS = [
   { lift: "Bench Press (Barbell)", multiplier: 1.0 },
   { lift: "Overhead Press (Barbell)", multiplier: 0.65 },
   { lift: "Squat (Barbell)", multiplier: 1.25 },
@@ -60,19 +56,28 @@ export function prescribedSets(tm: number, weekIndex: number) {
   }));
 }
 
-// After completing the 3-week wave, TM increases:
-// upper body lifts: +5 lbs, lower body: +10 lbs
-export function isUpperBody(lift: string): boolean {
-  const l = lift.toLowerCase();
-  return l.includes("bench") || l.includes("overhead") || l.includes("press") || l.includes("curl");
-}
-
+// After the 3-week wave, TM goes up: +10 lbs for lower body, +5 for upper
 export function tmIncrement(lift: string): number {
-  return isUpperBody(lift) ? 5 : 10;
+  const l = lift.toLowerCase();
+  return l.includes("squat") || l.includes("deadlift") ? 10 : 5;
 }
 
-// Given a date and the bodyweight log, return the nearest bodyweight value.
-// Interpolates linearly between the two closest entries.
+export function advanceWeek(state: ProgramState, lifts: string[]): ProgramState {
+  const nextWeek = (state.weekIndex + 1) % 4;
+  const newTMs = { ...state.trainingMaxes };
+  if (state.weekIndex === 2) {
+    for (const lift of lifts) {
+      if (newTMs[lift]) newTMs[lift] += tmIncrement(lift);
+    }
+  }
+  return {
+    trainingMaxes: newTMs,
+    weekIndex: nextWeek,
+    cycleNumber: nextWeek === 0 ? state.cycleNumber + 1 : state.cycleNumber,
+  };
+}
+
+// Bodyweight on a given date, linearly interpolated between log entries
 export function interpolateBW(date: string, log: WeightEntry[]): number | null {
   if (log.length === 0) return null;
   const sorted = [...log].sort((a, b) => a.date.localeCompare(b.date));
@@ -88,24 +93,4 @@ export function interpolateBW(date: string, log: WeightEntry[]): number | null {
     }
   }
   return sorted[sorted.length - 1].weight;
-}
-
-// Build a chart series: lift 1RM as % of goal (e.g. 100% = hit the target)
-export function goalProgressSeries(
-  ormHistory: { date: string; orm: number; ormLbs: number }[],
-  goalMultiplier: number,
-  weightLog: WeightEntry[],
-  units: string
-): { date: string; pct: number; bwRatio: number }[] {
-  return ormHistory
-    .map((h) => {
-      const bw = interpolateBW(h.date, weightLog);
-      if (!bw) return null;
-      const ormInUnits = units === "lbs" ? h.ormLbs : h.orm;
-      const target = goalMultiplier * bw;
-      const pct = Math.round((ormInUnits / target) * 100);
-      const bwRatio = Math.round((ormInUnits / bw) * 10) / 10;
-      return { date: h.date.slice(5), pct, bwRatio };
-    })
-    .filter((x): x is { date: string; pct: number; bwRatio: number } => x !== null);
 }

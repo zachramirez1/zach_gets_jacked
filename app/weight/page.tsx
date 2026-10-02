@@ -6,7 +6,6 @@ import {
   getWeightLog,
   addWeightEntry,
   deleteWeightEntry,
-  getUnits,
   type WeightEntry,
 } from "@/lib/store";
 import {
@@ -15,7 +14,6 @@ import {
 
 export default function WeightPage() {
   const [log, setLog] = useState<WeightEntry[]>([]);
-  const [units, setUnits] = useState("lbs");
   const [input, setInput] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [mounted, setMounted] = useState(false);
@@ -23,7 +21,6 @@ export default function WeightPage() {
   useEffect(() => {
     setMounted(true);
     setLog(getWeightLog());
-    setUnits(getUnits());
   }, []);
 
   if (!mounted) return null;
@@ -74,7 +71,7 @@ export default function WeightPage() {
             <input
               type="number"
               inputMode="decimal"
-              placeholder={`Weight (${units})`}
+              placeholder="Weight (lbs)"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && save()}
@@ -96,12 +93,12 @@ export default function WeightPage() {
           <Card className="text-center">
             <div className="text-xs text-[#737373] mb-1">Current</div>
             <div className="text-lg font-bold">{latest?.weight}</div>
-            <div className="text-xs text-[#737373]">{units}</div>
+            <div className="text-xs text-[#737373]">lbs</div>
           </Card>
           <Card className="text-center">
             <div className="text-xs text-[#737373] mb-1">7-day avg</div>
             <div className="text-lg font-bold">{avg7}</div>
-            <div className="text-xs text-[#737373]">{units}</div>
+            <div className="text-xs text-[#737373]">lbs</div>
           </Card>
           <Card className="text-center">
             <div className="text-xs text-[#737373] mb-1">Total Δ</div>
@@ -159,7 +156,7 @@ export default function WeightPage() {
           {[...log].reverse().map((e) => (
             <Card key={e.date} className="flex items-center justify-between py-3">
               <div>
-                <span className="font-semibold">{e.weight} {units}</span>
+                <span className="font-semibold">{e.weight} lbs</span>
                 <span className="ml-2 text-xs text-[#737373]">{e.date}</span>
               </div>
               <button

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import Card from "@/components/Card";
 import Link from "next/link";
-import { getApiKey, getWeightLog, getTrackedLifts, getUnits } from "@/lib/store";
+import { getApiKey, getWeightLog, getTrackedLifts } from "@/lib/store";
 import { getAllWorkouts, extractOneRepMaxHistory, type HevyWorkout } from "@/lib/hevy";
 import { DEFAULT_GOALS } from "@/lib/program";
 
@@ -29,7 +29,6 @@ export default function Dashboard() {
   if (!mounted) return null;
 
   const weightLog = getWeightLog();
-  const units = getUnits();
   const trackedLifts = getTrackedLifts();
 
   const latestWeight = weightLog.at(-1);
@@ -47,18 +46,14 @@ export default function Dashboard() {
       latest && prev && latest.date !== prev.date
         ? ((latest.orm - prev.orm) / prev.orm * 100).toFixed(1)
         : null;
-    // bodyweight ratio
     const latestBW = latestWeight?.weight;
-    const ormInUnits = latest ? (units === "lbs" ? latest.ormLbs : latest.orm) : null;
-    const bwRatio = ormInUnits && latestBW ? Math.round((ormInUnits / latestBW) * 10) / 10 : null;
+    const bwRatio = latest && latestBW ? Math.round((latest.orm / latestBW) * 10) / 10 : null;
     const goalMult = DEFAULT_GOALS.find((g) => g.lift === lift)?.multiplier ?? null;
-    const goalPct = ormInUnits && latestBW && goalMult
-      ? Math.round((ormInUnits / (latestBW * goalMult)) * 100)
+    const goalPct = latest && latestBW && goalMult
+      ? Math.round((latest.orm / (latestBW * goalMult)) * 100)
       : null;
     return { lift, latest, pct, bwRatio, goalPct, goalMult };
   });
-
-  const recentWorkouts = workouts.slice(0, 4);
 
   if (!hasKey) {
     return (
@@ -89,7 +84,7 @@ export default function Dashboard() {
           <div>
             <div className="text-3xl font-bold">
               {latestWeight ? latestWeight.weight : "—"}
-              <span className="ml-1 text-sm font-normal text-[#737373]">{units}</span>
+              <span className="ml-1 text-sm font-normal text-[#737373]">lbs</span>
             </div>
             <div className="mt-0.5 text-xs text-[#737373]">{latestWeight?.date ?? "No entries yet"}</div>
           </div>
@@ -106,7 +101,7 @@ export default function Dashboard() {
       </section>
 
       {/* Strength goals */}
-      <section className="mb-5">
+      <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xs font-semibold text-[#737373] uppercase tracking-widest">Strength Goals</h2>
           <Link href="/lifts" className="text-xs text-orange-500 font-semibold">Details →</Link>
@@ -123,7 +118,7 @@ export default function Dashboard() {
                   <div>
                     <div className="font-semibold text-sm">{lift.replace(" (Barbell)", "")}</div>
                     <div className="text-xs text-[#737373]">
-                      {latest ? (units === "lbs" ? latest.ormLbs : latest.orm) : "—"} {units} est. 1RM
+                      {latest ? latest.orm : "—"} lbs est. 1RM
                       {bwRatio !== null && <span className="ml-2 text-orange-400">{bwRatio}× BW</span>}
                     </div>
                   </div>
@@ -158,39 +153,6 @@ export default function Dashboard() {
                 )}
               </Card>
             ))}
-          </div>
-        )}
-      </section>
-
-      {/* Recent workouts */}
-      <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-semibold text-[#737373] uppercase tracking-widest">Recent Workouts</h2>
-        </div>
-        {loading ? (
-          <div className="text-[#737373] text-sm py-6 text-center">Loading...</div>
-        ) : recentWorkouts.length === 0 ? (
-          <Card><div className="text-[#737373] text-sm">No workouts found</div></Card>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {recentWorkouts.map((w) => {
-              const durationMin = Math.round(
-                (new Date(w.end_time).getTime() - new Date(w.start_time).getTime()) / 60000
-              );
-              return (
-                <Card key={w.id} className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold">{w.title || "Workout"}</div>
-                    <div className="text-xs text-[#737373]">
-                      {new Date(w.start_time).toLocaleDateString()} · {w.exercises.length} exercises
-                    </div>
-                  </div>
-                  <div className="text-orange-500 text-sm font-semibold shrink-0 ml-2">
-                    {durationMin > 0 ? `${durationMin}m` : ""}
-                  </div>
-                </Card>
-              );
-            })}
           </div>
         )}
       </section>
